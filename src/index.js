@@ -227,8 +227,11 @@ function detectPitch(buffer) {
     }
 
     if (closestNote) {
-      elements.detectedPitch.textContent = `Detected: ${closestNote}`;
-      checkAnswer(closestNote);
+      // Remove sharp from detected note - Dandelot method focuses on natural notes only
+      // C# is interpreted as closest to C, D# as closest to D, etc.
+      const naturalNote = closestNote.replace('#', '');
+      elements.detectedPitch.textContent = `Detected: ${naturalNote}`;
+      checkAnswer(naturalNote);
     }
   }
 
@@ -237,6 +240,9 @@ function detectPitch(buffer) {
 
 // Handle keyboard input
 function handleKeyboardInput(note) {
+  // Remove sharp from note - Dandelot method focuses on natural notes only
+  // This allows the piano keyboard to have all keys visible for realism,
+  // but interprets sharps as the nearest natural note
   const noteClass = note.replace('#', '');
   
   // Visual feedback
