@@ -9,5 +9,9 @@
   },
   "devDependencies": {
     "parcel": "^2.12.0"
+  },
+  "dependencies": {
+    "pitchy": "^4.1.0",
+    "vexflow": "^5.0.0"
   }
 }
