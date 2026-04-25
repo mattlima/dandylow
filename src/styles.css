@@ -219,11 +219,33 @@ select:focus {
   text-align: right;
 }
 
+.volume-meter-container {
+  margin-top: 10px;
+}
+
+.volume-meter-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.9em;
+  color: #666;
+}
+
+.volume-level {
+  font-weight: bold;
+  color: #667eea;
+  font-size: 1.1em;
+  min-width: 50px;
+  text-align: right;
+}
+
 .volume-meter {
   background: #e9ecef;
   height: 20px;
   border-radius: 10px;
   overflow: hidden;
+  border: 2px solid #ddd;
 }
 
 .volume-bar {
@@ -231,7 +253,7 @@ select:focus {
   background: linear-gradient(90deg, #28a745 0%, #ffc107 50%, #dc3545 100%);
   width: 0%;
   transition: width 0.1s;
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .keyboard-container {

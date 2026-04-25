@@ -62,6 +62,7 @@ const elements = {
   micStatus: document.getElementById('mic-status'),
   detectedPitch: document.getElementById('detected-pitch'),
   volumeBar: document.getElementById('volume-bar'),
+  volumeLevel: document.getElementById('volume-level'),
   keyboardContainer: document.getElementById('keyboard-container'),
   pianoKeyboard: document.getElementById('piano-keyboard'),
   nextBtn: document.getElementById('next-btn'),
@@ -76,6 +77,11 @@ function init() {
   setupEventListeners();
   generateNewNote();
   updateScoreDisplay();
+  
+  // Auto-start microphone if in microphone mode
+  if (state.inputMode === 'microphone') {
+    startPitchDetection();
+  }
 }
 
 // Setup event listeners
@@ -134,16 +140,23 @@ async function switchInputMode(mode) {
 // Start pitch detection
 async function startPitchDetection() {
   try {
+    console.log('Starting pitch detection...');
+    
     if (!state.audioContext) {
       state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      console.log('Audio context created');
     }
 
+    console.log('Requesting microphone access...');
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    console.log('Microphone access granted');
+    
     const source = state.audioContext.createMediaStreamSource(stream);
     
     state.analyser = state.audioContext.createAnalyser();
     state.analyser.fftSize = 2048;
     source.connect(state.analyser);
+    console.log('Audio analyser connected');
 
     const bufferLength = state.analyser.fftSize;
     const buffer = new Float32Array(bufferLength);
@@ -151,15 +164,30 @@ async function startPitchDetection() {
     state.detector = PitchDetector.forFloat32Array(bufferLength);
     state.detector.inputLength = bufferLength;
     state.isListening = true;
+    console.log('Pitch detector initialized');
 
     elements.micStatus.textContent = '🎤 Microphone active';
     elements.micStatus.classList.add('active');
+    
+    // Clear any previous error messages
+    elements.feedback.classList.add('hidden');
 
     detectPitch(buffer);
   } catch (error) {
     console.error('Error accessing microphone:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    
     elements.micStatus.textContent = '🎤 Microphone access denied';
-    elements.feedback.textContent = '⚠️ Please allow microphone access or use keyboard mode';
+    
+    let errorMessage = '⚠️ Please allow microphone access or use keyboard mode';
+    if (error.name === 'NotAllowedError') {
+      errorMessage = '⚠️ Microphone permission denied. Please enable it in your browser settings or use keyboard mode.';
+    } else if (error.name === 'NotFoundError') {
+      errorMessage = '⚠️ No microphone found. Please connect a microphone or use keyboard mode.';
+    }
+    
+    elements.feedback.textContent = errorMessage;
     elements.feedback.classList.remove('hidden', 'correct', 'incorrect');
     elements.feedback.style.background = '#fff3cd';
     elements.feedback.style.color = '#856404';
@@ -176,6 +204,8 @@ function stopPitchDetection() {
   elements.micStatus.classList.remove('active');
   elements.detectedPitch.textContent = 'Listening...';
   elements.volumeBar.style.width = '0%';
+  elements.volumeLevel.textContent = '0%';
+  elements.volumeLevel.style.color = '#667eea';
 }
 
 // Detect pitch continuously
@@ -184,14 +214,24 @@ function detectPitch(buffer) {
 
   state.analyser.getFloatTimeDomainData(buffer);
 
-  // Calculate volume
+  // Calculate volume (RMS)
   let sum = 0;
   for (let i = 0; i < buffer.length; i++) {
     sum += buffer[i] * buffer[i];
   }
   const volume = Math.sqrt(sum / buffer.length);
   const volumePercent = Math.min(100, volume * 1000);
+  
+  // Update volume meter and level display
   elements.volumeBar.style.width = `${volumePercent}%`;
+  elements.volumeLevel.textContent = `${Math.round(volumePercent)}%`;
+  
+  // Add visual indicator for sound detection
+  if (volumePercent > 5) {
+    elements.volumeLevel.style.color = '#28a745';
+  } else {
+    elements.volumeLevel.style.color = '#dc3545';
+  }
 
   // Detect pitch
   const [pitch, clarity] = state.detector.findPitch(buffer, state.audioContext.sampleRate);

@@ -68,8 +68,14 @@
           <span id="mic-status" class="status-indicator">🎤 Microphone inactive</span>
           <span id="detected-pitch" class="detected-pitch">Listening...</span>
         </div>
-        <div id="volume-meter" class="volume-meter">
-          <div id="volume-bar" class="volume-bar"></div>
+        <div class="volume-meter-container">
+          <div class="volume-meter-label">
+            <span>Sound Level:</span>
+            <span id="volume-level" class="volume-level">0%</span>
+          </div>
+          <div id="volume-meter" class="volume-meter">
+            <div id="volume-bar" class="volume-bar"></div>
+          </div>
         </div>
       </div>
 
