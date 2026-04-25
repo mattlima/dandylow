@@ -3,10 +3,105 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Dandylow</title>
+    <title>Dandylow - Sight Reading Practice</title>
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main id="app"></main>
+    <div class="container">
+      <header>
+        <h1>🎵 Sight Reading Practice 🎵</h1>
+        <p class="subtitle">Learn to read music with the Dandelot method!</p>
+      </header>
+
+      <div class="controls">
+        <div class="control-group">
+          <label for="level-select">Level:</label>
+          <select id="level-select">
+            <option value="1">Level 1 - C only</option>
+            <option value="2">Level 2 - C, G</option>
+            <option value="3">Level 3 - C, G, F</option>
+            <option value="4">Level 4 - C, G, F, D</option>
+            <option value="5">Level 5 - C, G, F, D, A</option>
+            <option value="6">Level 6 - C, G, F, D, A, E</option>
+            <option value="7">Level 7 - All notes</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="clef-select">Clef:</label>
+          <select id="clef-select">
+            <option value="treble">Treble</option>
+            <option value="bass">Bass</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label>Input Mode:</label>
+          <div class="toggle-group">
+            <button id="mic-mode-btn" class="toggle-btn active">🎤 Microphone</button>
+            <button id="keyboard-mode-btn" class="toggle-btn">🎹 Keyboard</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="score-board">
+        <div class="score-item">
+          <span class="score-label">Score:</span>
+          <span id="score" class="score-value">0 / 0</span>
+        </div>
+        <div class="score-item">
+          <span class="score-label">Accuracy:</span>
+          <span id="accuracy" class="score-value">0%</span>
+        </div>
+        <div class="score-item">
+          <span class="score-label">Streak:</span>
+          <span id="streak" class="score-value">0 🔥</span>
+        </div>
+      </div>
+
+      <div id="staff-container"></div>
+
+      <div id="feedback" class="feedback hidden"></div>
+
+      <div id="pitch-display" class="pitch-display">
+        <div class="pitch-info">
+          <span id="mic-status" class="status-indicator">🎤 Microphone inactive</span>
+          <span id="detected-pitch" class="detected-pitch">Listening...</span>
+        </div>
+        <div class="volume-meter-container">
+          <div class="volume-meter-label">
+            <span>Sound Level:</span>
+            <span id="volume-level" class="volume-level">0%</span>
+          </div>
+          <div id="volume-meter" class="volume-meter">
+            <div id="volume-bar" class="volume-bar"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="keyboard-container" class="keyboard-container hidden">
+        <div class="piano-keyboard" id="piano-keyboard">
+          <button class="key white" data-note="C">C</button>
+          <button class="key black" data-note="C#">C#</button>
+          <button class="key white" data-note="D">D</button>
+          <button class="key black" data-note="D#">D#</button>
+          <button class="key white" data-note="E">E</button>
+          <button class="key white" data-note="F">F</button>
+          <button class="key black" data-note="F#">F#</button>
+          <button class="key white" data-note="G">G</button>
+          <button class="key black" data-note="G#">G#</button>
+          <button class="key white" data-note="A">A</button>
+          <button class="key black" data-note="A#">A#</button>
+          <button class="key white" data-note="B">B</button>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button id="next-btn" class="btn btn-primary">Next Note</button>
+        <button id="reset-btn" class="btn btn-secondary">Reset Session</button>
+      </div>
+    </div>
+
     <script type="module" src="./index.js"></script>
   </body>
 </html>
