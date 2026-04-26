@@ -18,7 +18,8 @@ An interactive web-based sight-reading practice application for learning to read
 ### Dual Clef Support
 - **Treble Clef**: Notes ranging from C4 to C6
 - **Bass Clef**: Notes ranging from E2 to E4
-- Easy toggle between clefs
+- **Grand Staff**: Notes ranging from C2 to C6 (low C two ledger lines below bass to high C two ledger lines above treble)
+- Easy toggle between clefs and grand staff
 
 ### Two Input Modes
 
@@ -97,11 +98,11 @@ npm run clean
 
 1. **Select Your Level**: Choose from Level 1 (easiest - C only) to Level 7 (all notes)
 2. **Choose Your Clef**: Select Treble or Bass clef based on what you're learning
-3. **Pick Input Mode**: 
+3. **Pick Input Mode**:
    - Use **Microphone** to play notes on a real instrument
    - Use **Keyboard** to click the on-screen piano
 4. **Read the Note**: Look at the musical staff and identify the note
-5. **Play the Note**: 
+5. **Play the Note**:
    - In microphone mode: Play the note on your instrument or sing it
    - In keyboard mode: Click the correct key
 6. **Get Feedback**: See if you got it right!
