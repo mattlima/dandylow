@@ -1,6 +1,7 @@
-import { state, clearPitchCandidate } from '../state.js';
+import { audioGraph } from './audioGraph';
+import { useAudioStore } from '../stores/audio';
+import { useGameStore } from '../stores/game';
 import { DETECTION_CONFIG } from '../constants.js';
-import { elements } from '../ui/elements.js';
 import { detectNaturalNoteWithOctave, buildDetectionTargets, type DetectionTarget } from './noteFrequency.js';
 import { checkMicrophoneAnswer } from '../game/scoring.js';
 import { generateNewNote } from '../game/noteGenerator.js';
@@ -8,86 +9,89 @@ import { generateNewNote } from '../game/noteGenerator.js';
 const DETECTION_TARGETS: DetectionTarget[] = buildDetectionTargets();
 
 export function startDetectionLoop(buffer: Float32Array): void {
-  detectPitch(buffer);
+    detectPitch(buffer);
 }
 
 function detectPitch(buffer: Float32Array): void {
-  if (!state.isListening) return;
+    const audioStore = useAudioStore();
+    const gameStore = useGameStore();
 
-  const now = performance.now();
+    if (!audioStore.isListening) return;
 
-  state.analyser!.getFloatTimeDomainData(buffer as Float32Array<ArrayBuffer>);
+    const now = performance.now();
 
-  // Calculate volume (RMS)
-  let sum = 0;
-  for (let i = 0; i < buffer.length; i++) {
-    sum += (buffer[i] ?? 0) * (buffer[i] ?? 0);
-  }
-  const volume = Math.sqrt(sum / buffer.length);
-  const volumePercent = Math.min(100, volume * 1000);
+    audioGraph.analyser!.getFloatTimeDomainData(buffer as Float32Array<ArrayBuffer>);
 
-  elements.volumeBar.style.width = `${volumePercent}%`;
-  elements.volumeLevel.textContent = `${Math.round(volumePercent)}%`;
-  elements.volumeLevel.style.color = volumePercent > 5 ? '#28a745' : '#dc3545';
-
-  // Hold until silence after a triggered answer
-  if (state.waitingForSilence) {
-    if (volume < 0.015) {
-      state.waitingForSilence = false;
-      if (state.advanceOnSilence) {
-        state.advanceOnSilence = false;
-        generateNewNote();
-      }
-      resetStability();
+    // Calculate volume (RMS)
+    let sum = 0;
+    for (let i = 0; i < buffer.length; i++) {
+        sum += (buffer[i] ?? 0) * (buffer[i] ?? 0);
     }
-    state.animationFrameId = requestAnimationFrame(() => detectPitch(buffer));
-    return;
-  }
+    const volume = Math.sqrt(sum / buffer.length);
+    const volumePercent = Math.min(100, volume * 1000);
 
-  const [pitch, clarity] = state.detector!.findPitch(buffer, state.audioContext!.sampleRate);
+    audioStore.volumePercent = volumePercent;
+    audioStore.volumeColor = volumePercent > 5 ? '#28a745' : '#dc3545';
 
-  if (clarity >= DETECTION_CONFIG.minClarity && volume >= DETECTION_CONFIG.minVolume) {
-    const naturalNote = detectNaturalNoteWithOctave(pitch, DETECTION_TARGETS);
+    // Hold until silence after a triggered answer
+    if (gameStore.waitingForSilence) {
+        if (volume < 0.015) {
+            gameStore.waitingForSilence = false;
+            if (gameStore.advanceOnSilence) {
+                gameStore.advanceOnSilence = false;
+                generateNewNote();
+            }
+            audioStore.clearPitchCandidate();
+        }
+        audioGraph.animationFrameId = requestAnimationFrame(() => detectPitch(buffer));
+        return;
+    }
 
-    if (naturalNote) {
-      const stableDuration = updatePitchStability(naturalNote, now);
-      elements.detectedPitch.textContent = `Detected: ${naturalNote}`;
+    const [pitch, clarity] = audioGraph.detector!.findPitch(buffer, audioGraph.audioContext!.sampleRate);
 
-      const canTrigger =
-        stableDuration >= DETECTION_CONFIG.requiredStableMs &&
-        now - state.pitchStability.lastTriggeredAt >= DETECTION_CONFIG.triggerCooldownMs;
+    if (clarity >= DETECTION_CONFIG.minClarity && volume >= DETECTION_CONFIG.minVolume) {
+        const naturalNote = detectNaturalNoteWithOctave(pitch, DETECTION_TARGETS);
 
-      if (canTrigger) {
-        state.pitchStability.lastTriggeredAt = now;
-        state.waitingForSilence = true;
-        checkMicrophoneAnswer(naturalNote);
-      }
+        if (naturalNote) {
+            const stableDuration = updatePitchStability(naturalNote, now, audioStore);
+            audioStore.detectedPitch = `Detected: ${naturalNote}`;
+
+            const canTrigger =
+                stableDuration >= DETECTION_CONFIG.requiredStableMs &&
+                now - audioStore.pitchStability.lastTriggeredAt >= DETECTION_CONFIG.triggerCooldownMs;
+
+            if (canTrigger) {
+                audioStore.pitchStability.lastTriggeredAt = now;
+                gameStore.waitingForSilence = true;
+                checkMicrophoneAnswer(naturalNote);
+            }
+        } else {
+            audioStore.clearPitchCandidate();
+        }
     } else {
-      clearPitchCandidate();
+        audioStore.clearPitchCandidate();
     }
-  } else {
-    clearPitchCandidate();
-  }
 
-  state.animationFrameId = requestAnimationFrame(() => detectPitch(buffer));
+    audioGraph.animationFrameId = requestAnimationFrame(() => detectPitch(buffer));
 }
 
-function updatePitchStability(note: string, now: number): number {
-  const stability = state.pitchStability;
-  const isSameCandidate =
-    stability.note === note && now - stability.lastSeenAt <= DETECTION_CONFIG.maxFrameGapMs;
+function updatePitchStability(
+    note: string,
+    now: number,
+    audioStore: ReturnType<typeof useAudioStore>
+): number {
+    const stability = audioStore.pitchStability;
+    const isSameCandidate =
+        stability.note === note && now - stability.lastSeenAt <= DETECTION_CONFIG.maxFrameGapMs;
 
-  if (!isSameCandidate) {
-    stability.note = note;
-    stability.firstSeenAt = now;
+    if (!isSameCandidate) {
+        stability.note = note;
+        stability.firstSeenAt = now;
+        stability.lastSeenAt = now;
+        return 0;
+    }
+
     stability.lastSeenAt = now;
-    return 0;
-  }
-
-  stability.lastSeenAt = now;
-  return now - stability.firstSeenAt;
+    return now - stability.firstSeenAt;
 }
 
-function resetStability(): void {
-  clearPitchCandidate();
-}

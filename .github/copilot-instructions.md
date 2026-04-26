@@ -5,10 +5,10 @@ Dandylow is a browser-based sight-reading trainer inspired by the Dandelot metho
 
 The app is intentionally lightweight:
 - Single-page app with no framework
-- Main logic in `src/index.js`
+- Written in **TypeScript**, bundled with Parcel
+- Modular source layout under `src/` (see File Ownership below)
 - UI markup in `src/index.html`
 - Styling in `src/styles.css`
-- Bundled with Parcel
 
 Primary goals:
 - Fast note-recognition practice for young learners
@@ -23,7 +23,7 @@ Primary goals:
 
 ### Clefs and Ranges
 - Treble mode: C4 to C6
-- Bass mode: E2 to E4 (existing distribution map in code)
+- Bass mode: E2 to E4
 - Grand staff mode: C2 to C6
 - Grand staff rendering draws both staves with brace/left connector and routes each note to bass or treble staff by octave
 
@@ -41,11 +41,13 @@ Primary goals:
 ### Detection Pipeline
 - RMS volume is calculated each frame
 - Pitch is estimated with Pitchy
-- Candidate note is matched by cents tolerance against note frequency table
-- Enharmonics are collapsed to natural notes (sharp stripped)
+- Detection targets are pre-built from all note ranges at startup (`buildDetectionTargets` in `src/audio/noteFrequency.ts`)
+- Frequencies are computed from semitone math, not a hardcoded lookup table
+- Microphone answer checking uses **octave-specific** scientific notation (e.g. `C4`, `G3`) via `checkMicrophoneAnswer`
+- Keyboard answer checking uses note class only (e.g. `C`, `G`) via `checkKeyboardAnswer`
 
 ### Stability and Anti-False-Trigger Logic
-Pitch detection is stateful and should remain stateful.
+Pitch detection is stateful and must remain stateful. All thresholds live in `DETECTION_CONFIG` in `src/constants.ts`.
 
 Current guardrails:
 - Minimum clarity threshold
@@ -65,7 +67,7 @@ The app includes defensive recovery for common Chrome/Web Audio lifecycle issues
 Current expectations:
 - Startup uses explicit reconnect path when microphone mode is active
 - AudioContext is resumed if suspended
-- Old media tracks and graph nodes are cleaned up before restart
+- Old media tracks and graph nodes are cleaned up before restart (`cleanupMicrophoneResources`)
 - Recovery runs on focus, visibility change, and pageshow
 - Recovery can also trigger on user gesture (pointer/keyboard)
 - Track-ended events trigger reconnect attempts
@@ -77,10 +79,29 @@ When changing mic code:
 - Keep status text accurate during reconnect states
 
 ## File Ownership and Responsibilities
-- `src/index.js`: Application state, event wiring, note generation, audio pipeline, scoring, VexFlow rendering
-- `src/index.html`: Controls, score UI, staff container, pitch/volume UI, keyboard UI
-- `src/styles.css`: Visual design and layout
-- `README.md`: Product-level documentation and setup
+
+```
+src/
+  index.ts              Entry point: init, event wiring, input mode switching
+  index.html            Controls, score UI, staff container, pitch/volume UI, keyboard UI
+  styles.css            Visual design and layout
+  state.ts              AppState interface, shared mutable state object, pitch stability helpers
+  constants.ts          LEVEL_NOTES, note range maps (TREBLE/BASS/GRAND), DETECTION_CONFIG, types
+
+  audio/
+    microphone.ts       Mic lifecycle: start, stop, cleanup, ensureMicrophoneActive, track-ended recovery
+    pitchDetection.ts   requestAnimationFrame loop, RMS volume, stability gating, answer triggering
+    noteFrequency.ts    buildDetectionTargets, scientificNoteToFrequency, detectNaturalNoteWithOctave
+
+  game/
+    noteGenerator.ts    generateNewNote: picks random note constrained by level and clef
+    scoring.ts          checkKeyboardAnswer, checkMicrophoneAnswer, applyAnswerResult, score display, resetSession
+
+  ui/
+    elements.ts         Typed DOM element references
+    render.ts           renderStaff: VexFlow rendering for treble, bass, and grand staff
+    keyboard.ts         On-screen piano keyboard event wiring
+```
 
 ## Development Commands
 Use npm.
@@ -94,11 +115,12 @@ Use npm.
 ### Preserve Behavior Unless Requested
 - Keep level definitions stable
 - Keep clef/range mappings stable unless explicitly changed
-- Keep natural-note matching behavior for answer checking
+- Keep octave-specific microphone matching; do not regress to note-class-only matching for mic input
+- Keep `DETECTION_CONFIG` as the single source of truth for all detection thresholds
 
 ### Keep Edits Focused
 - Prefer minimal targeted edits
-- Do not refactor unrelated sections during feature work
+- Do not refactor unrelated modules during feature work
 - Keep comments brief and only where logic is non-obvious
 
 ### Verify After Changes
@@ -117,11 +139,11 @@ For microphone changes, also verify manually:
 - No backend/server state
 - No user authentication
 - No persistence layer for scores
-- No framework migration unless explicitly requested
 
 ## If You Add New Features
 Update all of the following together:
 1. UI controls in `src/index.html` (if applicable)
-2. Runtime logic in `src/index.js`
-3. Documentation in `README.md`
-4. This instructions file when behavior conventions or architecture evolve
+2. Logic in the relevant module(s) under `src/`
+3. Types/constants in `src/constants.ts` or `src/state.ts` if state shape changes
+4. Documentation in `README.md`
+5. This instructions file when behavior conventions or architecture evolve

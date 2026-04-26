@@ -6,7 +6,13 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "lib": ["ES2020", "DOM"],
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "jsx": "preserve",
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.vue"]
 }
