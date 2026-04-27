@@ -75,12 +75,15 @@
                         <label class="sensitivity-label" for="settings-sens-slider">
                             Microphone Sensitivity: <strong>{{ sensitivityLabel }}</strong>
                         </label>
-                        <input id="settings-sens-slider" type="range" min="1" max="10" step="1"
+                        <input id="settings-sens-slider" type="range" :min="sensitivityMinLevel" :max="sensitivityMaxLevel" step="1"
                             v-model.number="sensitivityLevel" />
                         <div class="sensitivity-hints">
                             <span>Less sensitive (louder input needed)</span>
                             <span>More sensitive</span>
                         </div>
+                        <p v-if="isUltraSensitivity" class="sensitivity-tip">
+                            Ultra mode (11-15) is tuned for low-gain mobile microphones like iPad.
+                        </p>
                     </div>
                 </template>
 
@@ -118,6 +121,11 @@ import { useAudioStore } from '../stores/audio';
 import { useProfilesStore } from '../stores/profiles';
 import { useNoteSession } from '../composables/useNoteSession';
 import { startPitchDetection } from '../audio/microphone';
+import {
+    SENSITIVITY_CONFIG,
+    clampSensitivityLevel,
+    sensitivityLevelToVolumeThreshold
+} from '../constants';
 
 const gameStore = useGameStore();
 const audioStore = useAudioStore();
@@ -125,8 +133,14 @@ const profilesStore = useProfilesStore();
 const { nextSequence } = useNoteSession();
 
 const activating = ref(false);
-const sensitivityLevel = ref<number>(profilesStore.activeProfile?.preferences.sensitivityLevel ?? 5);
+const sensitivityLevel = ref<number>(
+    clampSensitivityLevel(
+        profilesStore.activeProfile?.preferences.sensitivityLevel ?? SENSITIVITY_CONFIG.defaultLevel
+    )
+);
 const sequenceLengthLocal = ref<number>(gameStore.sequenceLength);
+const sensitivityMinLevel = SENSITIVITY_CONFIG.minLevel;
+const sensitivityMaxLevel = SENSITIVITY_CONFIG.maxLevel;
 
 defineEmits<{
     close: [];
@@ -134,10 +148,15 @@ defineEmits<{
 }>();
 
 const sensitivityLabel = computed(() => {
-    if (sensitivityLevel.value <= 3) return 'Low';
-    if (sensitivityLevel.value <= 7) return 'Medium';
-    return 'High';
+    if (sensitivityLevel.value <= 5) return 'Low';
+    if (sensitivityLevel.value <= 10) return 'Medium';
+    if (sensitivityLevel.value <= 13) return 'High';
+    return 'Ultra';
 });
+
+const isUltraSensitivity = computed(() =>
+    sensitivityLevel.value > SENSITIVITY_CONFIG.legacyMaxLevel
+);
 
 const thresholdPercent = computed(() => Math.min(100, audioStore.volumeThreshold * 1000));
 
@@ -151,30 +170,28 @@ const volumeLevelMessage = computed(() =>
         : '🔴 Sing louder or raise sensitivity'
 );
 
-function sensitivityToThreshold(level: number): number {
-    const MIN_THRESHOLD = 0.0015;
-    const MAX_THRESHOLD = 0.05;
-    const clampedLevel = Math.min(10, Math.max(1, level));
-    const ratio = (10 - clampedLevel) / 9;
-    return MIN_THRESHOLD + ratio * (MAX_THRESHOLD - MIN_THRESHOLD);
-}
-
 watch(
     () => profilesStore.activeProfile?.preferences.sensitivityLevel,
     (savedLevel) => {
-        const level = savedLevel ?? 5;
+        const level = clampSensitivityLevel(savedLevel ?? SENSITIVITY_CONFIG.defaultLevel);
         sensitivityLevel.value = level;
-        audioStore.volumeThreshold = sensitivityToThreshold(level);
+        audioStore.volumeThreshold = sensitivityLevelToVolumeThreshold(level);
     },
     { immediate: true }
 );
 
 watch(sensitivityLevel, (level) => {
-    const threshold = sensitivityToThreshold(level);
+    const normalizedLevel = clampSensitivityLevel(level);
+    if (normalizedLevel !== level) {
+        sensitivityLevel.value = normalizedLevel;
+        return;
+    }
+
+    const threshold = sensitivityLevelToVolumeThreshold(normalizedLevel);
     audioStore.volumeThreshold = threshold;
     const id = profilesStore.activeProfileId;
     if (id) {
-        profilesStore.updatePreferences(id, { sensitivityLevel: level });
+        profilesStore.updatePreferences(id, { sensitivityLevel: normalizedLevel });
     }
 });
 

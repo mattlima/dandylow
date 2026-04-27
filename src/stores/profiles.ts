@@ -5,7 +5,7 @@ export interface ProfilePreferences {
     level: number;
     clef: string;
     inputMode: 'microphone' | 'keyboard';
-    sensitivityLevel: number; // 1–10; maps to mic volume threshold
+    sensitivityLevel: number; // 1-15; maps to mic volume threshold
     sequenceLength: number;   // notes per sequence (default 10)
 }
 

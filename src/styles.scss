@@ -931,6 +931,17 @@ select {
   color: #888;
 }
 
+.sensitivity-tip {
+  margin-top: 4px;
+  font-size: 0.82em;
+  line-height: 1.4;
+  color: #4b4f73;
+  background: #eef1ff;
+  border: 1px solid #d9ddff;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
 // ─── Keyboard mode note ───────────────────────────────────────
 .keyboard-mode-note {
   color: #555;
