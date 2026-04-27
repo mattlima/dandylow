@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { DETECTION_CONFIG } from '../constants';
 
 export interface PitchStability {
     note: string | null;
@@ -19,16 +20,20 @@ export const useAudioStore = defineStore('audio', () => {
     const volumePercent = ref(0);
     const volumeColor = ref('#dc3545');
 
+    // Runtime-adjustable volume threshold (overrides DETECTION_CONFIG.minVolume)
+    const volumeThreshold = ref(DETECTION_CONFIG.minVolume);
+
     const pitchStability = ref<PitchStability>({
         note: null,
         firstSeenAt: 0,
         lastSeenAt: 0,
         lastTriggeredAt: 0
     });
+    const silenceGateFirstSeenAt = ref(0);
 
     function resetPitchStability(): void {
         clearPitchCandidate();
-        pitchStability.value.lastTriggeredAt = 0;
+        silenceGateFirstSeenAt.value = 0;
     }
 
     function clearPitchCandidate(): void {
@@ -37,11 +42,17 @@ export const useAudioStore = defineStore('audio', () => {
         pitchStability.value.lastSeenAt = 0;
     }
 
+    function clearSilenceGateCandidate(): void {
+        silenceGateFirstSeenAt.value = 0;
+    }
+
     return {
         isListening, isRestartingMic,
         micStatusText, micStatusActive,
         detectedPitch, volumePercent, volumeColor,
+        volumeThreshold,
         pitchStability,
-        resetPitchStability, clearPitchCandidate
+        silenceGateFirstSeenAt,
+        resetPitchStability, clearPitchCandidate, clearSilenceGateCandidate
     };
 });

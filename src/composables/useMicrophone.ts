@@ -5,36 +5,22 @@ import {
     ensureMicrophoneActive
 } from '../audio/microphone';
 import { useGameStore } from '../stores/game';
-import { useAudioStore } from '../stores/audio';
 
 export function useMicrophone() {
     const gameStore = useGameStore();
-    const audioStore = useAudioStore();
 
     function handleRecovery(): void {
+        // Only attempt recovery when in the game (not on the entry screen)
+        if (gameStore.screen !== 'game') return;
         ensureMicrophoneActive();
     }
 
-    onMounted(async () => {
+    onMounted(() => {
         document.addEventListener('visibilitychange', handleRecovery);
         window.addEventListener('focus', handleRecovery);
         window.addEventListener('pageshow', handleRecovery);
         window.addEventListener('pointerdown', handleRecovery, { passive: true });
         window.addEventListener('keydown', handleRecovery);
-
-        if (gameStore.inputMode === 'microphone') {
-            try {
-                audioStore.micStatusText = '🎤 Connecting microphone...';
-                await ensureMicrophoneActive();
-            } catch (error) {
-                console.error('Microphone initialization error:', error);
-                audioStore.micStatusText = '🎤 Microphone inactive';
-                gameStore.showFeedback(
-                    'incorrect',
-                    '⚠️ Unable to initialize microphone. Click anywhere to retry.'
-                );
-            }
-        }
     });
 
     onUnmounted(() => {

@@ -1,10 +1,8 @@
 <template>
   <div class="pitch-display" :class="{ hidden: gameStore.inputMode === 'keyboard' }">
     <div class="pitch-info">
-      <span
-        class="status-indicator"
-        :class="{ active: audioStore.micStatusActive }"
-      >{{ audioStore.micStatusText }}</span>
+      <span class="status-indicator" :class="{ active: audioStore.micStatusActive }">{{ audioStore.micStatusText
+        }}</span>
       <span class="detected-pitch">{{ audioStore.detectedPitch }}</span>
     </div>
     <div class="volume-meter-container">
@@ -15,7 +13,8 @@
         </span>
       </div>
       <div class="volume-meter">
-        <div class="volume-bar" :style="{ width: audioStore.volumePercent + '%' }"></div>
+        <div class="volume-bar" :style="{ width: audioStore.volumePercent + '%', background: audioStore.volumeColor }">
+        </div>
       </div>
     </div>
   </div>

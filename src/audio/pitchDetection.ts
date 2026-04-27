@@ -4,7 +4,6 @@ import { useGameStore } from '../stores/game';
 import { DETECTION_CONFIG } from '../constants.js';
 import { detectNaturalNoteWithOctave, buildDetectionTargets, type DetectionTarget } from './noteFrequency.js';
 import { checkMicrophoneAnswer } from '../game/scoring.js';
-import { generateNewNote } from '../game/noteGenerator.js';
 
 const DETECTION_TARGETS: DetectionTarget[] = buildDetectionTargets();
 
@@ -33,23 +32,43 @@ function detectPitch(buffer: Float32Array): void {
     audioStore.volumePercent = volumePercent;
     audioStore.volumeColor = volumePercent > 5 ? '#28a745' : '#dc3545';
 
-    // Hold until silence after a triggered answer
+    // Hold until silence after a triggered answer — then advance sequence
     if (gameStore.waitingForSilence) {
-        if (volume < 0.015) {
-            gameStore.waitingForSilence = false;
-            if (gameStore.advanceOnSilence) {
-                gameStore.advanceOnSilence = false;
-                generateNewNote();
+        if (volume < DETECTION_CONFIG.silenceGateVolume) {
+            if (audioStore.silenceGateFirstSeenAt === 0) {
+                audioStore.silenceGateFirstSeenAt = now;
             }
-            audioStore.clearPitchCandidate();
+
+            const silenceDuration = now - audioStore.silenceGateFirstSeenAt;
+            if (silenceDuration >= DETECTION_CONFIG.silenceGateRequiredMs) {
+                audioStore.clearPitchCandidate();
+                gameStore.advanceSequence(); // resets waitingForSilence and noteAttempted
+                audioStore.resetPitchStability();
+            }
+        } else {
+            audioStore.clearSilenceGateCandidate();
         }
+
+        if (!gameStore.waitingForSilence) {
+            audioStore.clearPitchCandidate();
+            audioStore.clearSilenceGateCandidate();
+        }
+
+        audioGraph.animationFrameId = requestAnimationFrame(() => detectPitch(buffer));
+        return;
+    }
+
+    audioStore.clearSilenceGateCandidate();
+
+    // Don't process pitch when sequence is complete or note already attempted
+    if (gameStore.sequenceComplete || gameStore.noteAttempted) {
         audioGraph.animationFrameId = requestAnimationFrame(() => detectPitch(buffer));
         return;
     }
 
     const [pitch, clarity] = audioGraph.detector!.findPitch(buffer, audioGraph.audioContext!.sampleRate);
 
-    if (clarity >= DETECTION_CONFIG.minClarity && volume >= DETECTION_CONFIG.minVolume) {
+    if (clarity >= DETECTION_CONFIG.minClarity && volume >= audioStore.volumeThreshold) {
         const naturalNote = detectNaturalNoteWithOctave(pitch, DETECTION_TARGETS);
 
         if (naturalNote) {
@@ -62,7 +81,6 @@ function detectPitch(buffer: Float32Array): void {
 
             if (canTrigger) {
                 audioStore.pitchStability.lastTriggeredAt = now;
-                gameStore.waitingForSilence = true;
                 checkMicrophoneAnswer(naturalNote);
             }
         } else {
@@ -94,4 +112,5 @@ function updatePitchStability(
     stability.lastSeenAt = now;
     return now - stability.firstSeenAt;
 }
+
 

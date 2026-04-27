@@ -1,9 +1,9 @@
-import { generateNewNote } from '../game/noteGenerator';
+import { generateNewSequence } from '../game/noteGenerator';
 import { resetSession } from '../game/scoring';
 
 export function useNoteSession() {
     return {
-        nextNote: generateNewNote,
+        nextSequence: generateNewSequence,
         resetSession
     };
 }
