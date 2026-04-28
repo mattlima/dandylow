@@ -31,27 +31,38 @@ function noteWeight(scientific: string, stats: StatMap): number {
     return Math.max(NOTE_SELECTION_CONFIG.minSeenNoteWeight, streakFactor * missFactor);
 }
 
-function pickWeightedNote(clef: string, availableNoteClasses: string[], stats: StatMap): SequenceNote | null {
+function pickWeightedNote(
+    clef: string,
+    availableNoteClasses: string[],
+    stats: StatMap,
+    previousScientific?: string
+): SequenceNote | null {
     const noteRange = getNoteRangeForClef(clef);
-    const candidates: Array<{ vexKey: string; noteClass: string; weight: number }> = [];
+    const candidates: Array<{ vexKey: string; noteClass: string; scientific: string; weight: number }> = [];
     for (const noteClass of availableNoteClasses) {
         for (const vexKey of noteRange[noteClass] ?? []) {
-            candidates.push({ vexKey, noteClass, weight: noteWeight(vexKeyToScientific(vexKey), stats) });
+            const scientific = vexKeyToScientific(vexKey);
+            candidates.push({ vexKey, noteClass, scientific, weight: noteWeight(scientific, stats) });
         }
     }
     if (candidates.length === 0) return null;
 
-    const totalWeight = candidates.reduce((sum, c) => sum + c.weight, 0);
+    const selectable = previousScientific
+        ? candidates.filter((candidate) => candidate.scientific !== previousScientific)
+        : candidates;
+    const pool = selectable.length > 0 ? selectable : candidates;
+
+    const totalWeight = pool.reduce((sum, c) => sum + c.weight, 0);
     let pick = Math.random() * totalWeight;
-    for (const c of candidates) {
+    for (const c of pool) {
         pick -= c.weight;
         if (pick <= 0) {
-            return { note: c.vexKey, noteClass: c.noteClass, noteScientific: vexKeyToScientific(c.vexKey), status: 'pending' };
+            return { note: c.vexKey, noteClass: c.noteClass, noteScientific: c.scientific, status: 'pending' };
         }
     }
     // Floating-point fallback: return last candidate
-    const last = candidates[candidates.length - 1]!;
-    return { note: last.vexKey, noteClass: last.noteClass, noteScientific: vexKeyToScientific(last.vexKey), status: 'pending' };
+    const last = pool[pool.length - 1]!;
+    return { note: last.vexKey, noteClass: last.noteClass, noteScientific: last.scientific, status: 'pending' };
 }
 
 export function generateNewSequence(): void {
@@ -64,10 +75,14 @@ export function generateNewSequence(): void {
     const availableNoteClasses = LEVEL_NOTES[gameStore.level] ?? [];
     const stats = profilesStore.activeProfile?.pitchStats ?? {};
     const notes: SequenceNote[] = [];
+    let previousScientific: string | undefined;
 
     for (let i = 0; i < gameStore.sequenceLength; i++) {
-        const note = pickWeightedNote(gameStore.clef, availableNoteClasses, stats);
-        if (note) notes.push(note);
+        const note = pickWeightedNote(gameStore.clef, availableNoteClasses, stats, previousScientific);
+        if (note) {
+            notes.push(note);
+            previousScientific = note.noteScientific;
+        }
     }
 
     if (notes.length === 0) return;

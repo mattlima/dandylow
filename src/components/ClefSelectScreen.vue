@@ -19,7 +19,7 @@
 
                 <div class="clef-stats">
                     <span><strong>{{ clefSummary(option.key).practicedPitches }}/{{ clefSummary(option.key).totalPitches
-                            }}</strong> pitches practiced</span>
+                    }}</strong> pitches practiced</span>
                     <span>Accuracy: <strong>{{ clefSummary(option.key).accuracyLabel }}</strong></span>
                     <span>Best streak: <strong>{{ clefSummary(option.key).bestStreak }}</strong></span>
                 </div>
@@ -86,7 +86,8 @@ function scientificPitchesForClef(clef: ClefKey): string[] {
 
 function clefSummary(clef: ClefKey): ClefSummary {
     const stats = pitchStats.value;
-    const level = nextUnlockedLevel(clef, stats);
+    const advanced = profilesStore.activeProfile?.preferences.advancedSettings;
+    const level = nextUnlockedLevel(clef, stats, advanced);
     const levelNotes = (LEVEL_NOTES[level] ?? []).join(' ');
     const pitches = scientificPitchesForClef(clef);
 
@@ -121,7 +122,8 @@ function clefSummary(clef: ClefKey): ClefSummary {
 async function startWithClef(clef: ClefKey): Promise<void> {
     const stats = pitchStats.value;
     gameStore.clef = clef;
-    gameStore.level = nextUnlockedLevel(clef, stats);
+    const advanced = profilesStore.activeProfile?.preferences.advancedSettings;
+    gameStore.level = nextUnlockedLevel(clef, stats, advanced);
 
     if (gameStore.inputMode === 'microphone') {
         await startPitchDetection();

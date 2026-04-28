@@ -4,6 +4,7 @@ import { useProfilesStore } from '../stores/profiles';
 import { generateNewSequence } from './noteGenerator';
 import { renderStaff } from '../ui/render';
 import { isLevelComplete } from './progression';
+import { LEVEL_MAX, resolveAdvancedSettings } from '../constants';
 
 function recordPitchStat(scientificPitch: string, isCorrect: boolean): void {
     const profilesStore = useProfilesStore();
@@ -14,10 +15,11 @@ function recordPitchStat(scientificPitch: string, isCorrect: boolean): void {
 function checkProgressionGate(): void {
     const gameStore = useGameStore();
     const profilesStore = useProfilesStore();
+    const advancedSettings = profilesStore.activeProfile?.preferences.advancedSettings;
     if (gameStore.pendingLevelUp !== null) return; // already pending
-    if (gameStore.level >= 7) return;
+    if (gameStore.level >= LEVEL_MAX) return;
     const stats = profilesStore.activeProfile?.pitchStats ?? {};
-    if (isLevelComplete(gameStore.level, gameStore.clef, stats)) {
+    if (isLevelComplete(gameStore.level, gameStore.clef, stats, advancedSettings)) {
         gameStore.pendingLevelUp = gameStore.level + 1;
     }
 }
@@ -25,6 +27,8 @@ function checkProgressionGate(): void {
 export function checkKeyboardAnswer(pitchClass: string): void {
     const gameStore = useGameStore();
     const audioStore = useAudioStore();
+    const profilesStore = useProfilesStore();
+    const advanced = resolveAdvancedSettings(profilesStore.activeProfile?.preferences.advancedSettings);
 
     if (gameStore.noteAttempted || gameStore.sequenceComplete) return;
     if (!gameStore.currentNoteClass || !gameStore.currentNoteScientific) return;
@@ -42,7 +46,7 @@ export function checkKeyboardAnswer(pitchClass: string): void {
         gameStore.advanceSequence();
         audioStore.resetPitchStability();
         renderStaff(gameStore.sequence, gameStore.currentSequenceIndex, gameStore.clef);
-    }, 1200);
+    }, advanced.gameplayTiming.keyboardAutoAdvanceMs);
 }
 
 export function checkMicrophoneAnswer(noteWithOctave: string): void {

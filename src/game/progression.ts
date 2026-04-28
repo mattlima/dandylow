@@ -1,9 +1,11 @@
 import {
     LEVEL_NOTES,
+    LEVEL_MAX,
     TREBLE_NOTES,
     BASS_NOTES,
     GRAND_NOTES,
-    PROGRESSION_CONFIG,
+    resolveAdvancedSettings,
+    type AdvancedSettingsInput,
     type NoteRangeMap
 } from '../constants';
 import type { PitchStat } from '../stores/profiles';
@@ -21,11 +23,12 @@ function getClefRangeMap(clef: string): NoteRangeMap {
 export function isLevelComplete(
     level: number,
     clef: string,
-    pitchStats: Record<string, PitchStat>
+    pitchStats: Record<string, PitchStat>,
+    advancedSettingsInput?: AdvancedSettingsInput
 ): boolean {
     const levelNotes = LEVEL_NOTES[level] ?? [];
     const rangeMap = getClefRangeMap(clef);
-    const { minPresentations, minStreak } = PROGRESSION_CONFIG;
+    const { minPresentations, minStreak } = resolveAdvancedSettings(advancedSettingsInput).progression;
 
     for (const pc of levelNotes) {
         for (const vexNote of rangeMap[pc] ?? []) {
@@ -47,14 +50,15 @@ export function isLevelComplete(
  */
 export function nextUnlockedLevel(
     clef: string,
-    pitchStats: Record<string, PitchStat>
+    pitchStats: Record<string, PitchStat>,
+    advancedSettingsInput?: AdvancedSettingsInput
 ): number {
-    for (let level = 1; level <= 7; level++) {
-        if (!isLevelComplete(level, clef, pitchStats)) {
+    for (let level = 1; level <= LEVEL_MAX; level++) {
+        if (!isLevelComplete(level, clef, pitchStats, advancedSettingsInput)) {
             return level;
         }
     }
-    return 7;
+    return LEVEL_MAX;
 }
 
 /**

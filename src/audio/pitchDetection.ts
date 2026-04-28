@@ -1,7 +1,8 @@
 import { audioGraph } from './audioGraph';
 import { useAudioStore } from '../stores/audio';
 import { useGameStore } from '../stores/game';
-import { DETECTION_CONFIG } from '../constants.js';
+import { resolveAdvancedSettings, VOLUME_PERCENT_MULTIPLIER } from '../constants.js';
+import { useProfilesStore } from '../stores/profiles';
 import { detectNaturalNoteWithOctave, buildDetectionTargets, type DetectionTarget } from './noteFrequency.js';
 import { checkMicrophoneAnswer } from '../game/scoring.js';
 
@@ -14,6 +15,10 @@ export function startDetectionLoop(buffer: Float32Array): void {
 function detectPitch(buffer: Float32Array): void {
     const audioStore = useAudioStore();
     const gameStore = useGameStore();
+    const profilesStore = useProfilesStore();
+    const advanced = resolveAdvancedSettings(profilesStore.activeProfile?.preferences.advancedSettings);
+    const detectionConfig = advanced.detection;
+    const effectiveVolumeThreshold = Math.max(audioStore.volumeThreshold, detectionConfig.minVolume);
 
     if (!audioStore.isListening) return;
 
@@ -27,20 +32,28 @@ function detectPitch(buffer: Float32Array): void {
         sum += (buffer[i] ?? 0) * (buffer[i] ?? 0);
     }
     const volume = Math.sqrt(sum / buffer.length);
-    const volumePercent = Math.min(100, volume * 1000);
+    const volumePercent = Math.min(100, volume * VOLUME_PERCENT_MULTIPLIER);
 
     audioStore.volumePercent = volumePercent;
-    audioStore.volumeColor = volumePercent > 5 ? '#28a745' : '#dc3545';
+    audioStore.volumeColor = volumePercent >= effectiveVolumeThreshold * VOLUME_PERCENT_MULTIPLIER
+        ? '#28a745'
+        : '#dc3545';
 
     // Hold until silence after a triggered answer — then advance sequence
     if (gameStore.waitingForSilence) {
-        if (volume < DETECTION_CONFIG.silenceGateVolume) {
+        // On mobile mics, volume can dip briefly while a note is still held.
+        // Require both low volume and no reliable pitch before treating input as silence.
+        const [waitingPitch, waitingClarity] = audioGraph.detector!.findPitch(buffer, audioGraph.audioContext!.sampleRate);
+        const waitingNaturalNote = detectNaturalNoteWithOctave(waitingPitch, DETECTION_TARGETS);
+        const hasReliablePitch = waitingClarity >= detectionConfig.minClarity && Boolean(waitingNaturalNote);
+
+        if (volume < detectionConfig.silenceGateVolume && !hasReliablePitch) {
             if (audioStore.silenceGateFirstSeenAt === 0) {
                 audioStore.silenceGateFirstSeenAt = now;
             }
 
             const silenceDuration = now - audioStore.silenceGateFirstSeenAt;
-            if (silenceDuration >= DETECTION_CONFIG.silenceGateRequiredMs) {
+            if (silenceDuration >= detectionConfig.silenceGateRequiredMs) {
                 audioStore.clearPitchCandidate();
                 gameStore.advanceSequence(); // resets waitingForSilence and noteAttempted
                 audioStore.resetPitchStability();
@@ -68,16 +81,21 @@ function detectPitch(buffer: Float32Array): void {
 
     const [pitch, clarity] = audioGraph.detector!.findPitch(buffer, audioGraph.audioContext!.sampleRate);
 
-    if (clarity >= DETECTION_CONFIG.minClarity && volume >= audioStore.volumeThreshold) {
+    if (clarity >= detectionConfig.minClarity && volume >= effectiveVolumeThreshold) {
         const naturalNote = detectNaturalNoteWithOctave(pitch, DETECTION_TARGETS);
 
         if (naturalNote) {
-            const stableDuration = updatePitchStability(naturalNote, now, audioStore);
+            const stableDuration = updatePitchStability(
+                naturalNote,
+                now,
+                detectionConfig.maxFrameGapMs,
+                audioStore
+            );
             audioStore.detectedPitch = `Detected: ${naturalNote}`;
 
             const canTrigger =
-                stableDuration >= DETECTION_CONFIG.requiredStableMs &&
-                now - audioStore.pitchStability.lastTriggeredAt >= DETECTION_CONFIG.triggerCooldownMs;
+                stableDuration >= detectionConfig.requiredStableMs &&
+                now - audioStore.pitchStability.lastTriggeredAt >= detectionConfig.triggerCooldownMs;
 
             if (canTrigger) {
                 audioStore.pitchStability.lastTriggeredAt = now;
@@ -96,11 +114,12 @@ function detectPitch(buffer: Float32Array): void {
 function updatePitchStability(
     note: string,
     now: number,
+    maxFrameGapMs: number,
     audioStore: ReturnType<typeof useAudioStore>
 ): number {
     const stability = audioStore.pitchStability;
     const isSameCandidate =
-        stability.note === note && now - stability.lastSeenAt <= DETECTION_CONFIG.maxFrameGapMs;
+        stability.note === note && now - stability.lastSeenAt <= maxFrameGapMs;
 
     if (!isSameCandidate) {
         stability.note = note;

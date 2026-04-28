@@ -75,8 +75,8 @@
                         <label class="sensitivity-label" for="sens-slider">
                             Microphone Sensitivity: <strong>{{ sensitivityLabel }}</strong>
                         </label>
-                        <input id="sens-slider" type="range" :min="sensitivityMinLevel" :max="sensitivityMaxLevel" step="1"
-                            v-model.number="sensitivityLevel" />
+                        <input id="sens-slider" type="range" :min="sensitivityMinLevel" :max="sensitivityMaxLevel"
+                            step="1" v-model.number="sensitivityLevel" />
                         <div class="sensitivity-hints">
                             <span>Less sensitive (louder input needed)</span>
                             <span>More sensitive</span>
@@ -112,9 +112,12 @@ import { useAudioStore } from '../stores/audio';
 import { useGameStore } from '../stores/game';
 import { startPitchDetection } from '../audio/microphone';
 import {
+    resolveAdvancedSettings,
     SENSITIVITY_CONFIG,
     clampSensitivityLevel,
-    sensitivityLevelToVolumeThreshold
+    sensitivityLevelToVolumeThreshold,
+    sensitivityLevelToLabel,
+    VOLUME_PERCENT_MULTIPLIER
 } from '../constants';
 
 const profilesStore = useProfilesStore();
@@ -145,10 +148,7 @@ const selectedInputMode = computed<'microphone' | 'keyboard'>(() => {
 });
 
 const sensitivityLabel = computed(() => {
-    if (sensitivityLevel.value <= 5) return 'Low';
-    if (sensitivityLevel.value <= 10) return 'Medium';
-    if (sensitivityLevel.value <= 13) return 'High';
-    return 'Ultra';
+    return sensitivityLevelToLabel(sensitivityLevel.value);
 });
 
 const isUltraSensitivity = computed(() =>
@@ -156,7 +156,11 @@ const isUltraSensitivity = computed(() =>
 );
 
 // Position of the threshold marker on the volume meter (same scale as volumePercent)
-const thresholdPercent = computed(() => Math.min(100, audioStore.volumeThreshold * 1000));
+const thresholdPercent = computed(() => {
+    const advanced = resolveAdvancedSettings(profilesStore.activeProfile?.preferences.advancedSettings);
+    const effectiveThreshold = Math.max(audioStore.volumeThreshold, advanced.detection.minVolume);
+    return Math.min(100, effectiveThreshold * VOLUME_PERCENT_MULTIPLIER);
+});
 
 // Color the calibration bar against the actual threshold (not the hardcoded > 5 check)
 const calibrationBarColor = computed(() =>

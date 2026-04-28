@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import type { AdvancedSettingsInput } from '../constants';
+import { resolveAdvancedSettings } from '../constants';
 
 export interface ProfilePreferences {
     level: number;
@@ -7,6 +9,7 @@ export interface ProfilePreferences {
     inputMode: 'microphone' | 'keyboard';
     sensitivityLevel: number; // 1-15; maps to mic volume threshold
     sequenceLength: number;   // notes per sequence (default 10)
+    advancedSettings: AdvancedSettingsInput;
 }
 
 export interface ProfileStats {
@@ -40,10 +43,17 @@ interface StorageSchema {
 }
 
 const STORAGE_KEY = 'dandylow-data';
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 function defaultPreferences(): ProfilePreferences {
-    return { level: 1, clef: 'treble', inputMode: 'microphone', sensitivityLevel: 5, sequenceLength: 10 };
+    return {
+        level: 1,
+        clef: 'treble',
+        inputMode: 'microphone',
+        sensitivityLevel: 5,
+        sequenceLength: 10,
+        advancedSettings: resolveAdvancedSettings()
+    };
 }
 
 function defaultStats(): ProfileStats {
@@ -87,8 +97,37 @@ function migrateSchema(raw: unknown): StorageSchema {
         return { version: SCHEMA_VERSION, activeProfileId: data.activeProfileId, profiles: migratedProfiles };
     }
 
-    // v4 — current
-    return data as StorageSchema;
+    // v4 → v5: add per-profile advanced settings defaults and normalize all profile preferences
+    if (data.version === 4) {
+        const migratedProfiles: Record<string, Profile> = {};
+        for (const [id, p] of Object.entries(data.profiles ?? {})) {
+            migratedProfiles[id] = {
+                ...p,
+                preferences: {
+                    ...p.preferences,
+                    advancedSettings: resolveAdvancedSettings((p.preferences as ProfilePreferences).advancedSettings)
+                }
+            };
+        }
+        return { version: SCHEMA_VERSION, activeProfileId: data.activeProfileId, profiles: migratedProfiles };
+    }
+
+    // v5 — current: normalize in case values are manually edited in localStorage
+    const normalizedProfiles: Record<string, Profile> = {};
+    for (const [id, p] of Object.entries(data.profiles ?? {})) {
+        normalizedProfiles[id] = {
+            ...p,
+            preferences: {
+                ...p.preferences,
+                advancedSettings: resolveAdvancedSettings((p.preferences as ProfilePreferences).advancedSettings)
+            }
+        };
+    }
+    return {
+        version: SCHEMA_VERSION,
+        activeProfileId: data.activeProfileId,
+        profiles: normalizedProfiles
+    };
 }
 
 export const useProfilesStore = defineStore('profiles', () => {

@@ -3,10 +3,14 @@ import { audioGraph } from './audioGraph';
 import { useAudioStore } from '../stores/audio';
 import { useGameStore } from '../stores/game';
 import { startDetectionLoop } from './pitchDetection.js';
+import { resolveAdvancedSettings } from '../constants.js';
+import { useProfilesStore } from '../stores/profiles';
 
 export async function startPitchDetection(): Promise<void> {
     const audioStore = useAudioStore();
     const gameStore = useGameStore();
+    const profilesStore = useProfilesStore();
+    const advanced = resolveAdvancedSettings(profilesStore.activeProfile?.preferences.advancedSettings);
 
     try {
         if (audioStore.isRestartingMic) return;
@@ -48,7 +52,7 @@ export async function startPitchDetection(): Promise<void> {
         audioGraph.micSource = source;
 
         audioGraph.analyser = audioGraph.audioContext.createAnalyser();
-        audioGraph.analyser.fftSize = 2048;
+        audioGraph.analyser.fftSize = advanced.microphone.analyserFftSize;
         source.connect(audioGraph.analyser);
 
         const bufferLength = audioGraph.analyser.fftSize;

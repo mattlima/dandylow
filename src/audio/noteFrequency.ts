@@ -1,4 +1,5 @@
-import { TREBLE_NOTES, BASS_NOTES, GRAND_NOTES, DETECTION_CONFIG, type NoteRangeMap } from '../constants.js';
+import { TREBLE_NOTES, BASS_NOTES, GRAND_NOTES, resolveAdvancedSettings, type NoteRangeMap } from '../constants.js';
+import { useProfilesStore } from '../stores/profiles';
 
 export interface DetectionTarget {
     note: string;
@@ -44,13 +45,17 @@ export function detectNaturalNoteWithOctave(
     pitch: number,
     targets: DetectionTarget[]
 ): string | null {
+    const profilesStore = useProfilesStore();
+    const centsTolerance = resolveAdvancedSettings(profilesStore.activeProfile?.preferences.advancedSettings)
+        .detection.centsTolerance;
+
     let closestNote: string | null = null;
     let minAbsCents = Infinity;
 
     for (const target of targets) {
         const cents = 1200 * Math.log2(pitch / target.frequency);
         const absCents = Math.abs(cents);
-        if (absCents <= DETECTION_CONFIG.centsTolerance && absCents < minAbsCents) {
+        if (absCents <= centsTolerance && absCents < minAbsCents) {
             minAbsCents = absCents;
             closestNote = target.note;
         }

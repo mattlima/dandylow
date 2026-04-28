@@ -65,7 +65,8 @@ watch(
   (id) => {
     if (!id) return;
     const stats = profilesStore.activeProfile?.pitchStats ?? {};
-    gameStore.level = nextUnlockedLevel(gameStore.clef, stats);
+    const advanced = profilesStore.activeProfile?.preferences.advancedSettings;
+    gameStore.level = nextUnlockedLevel(gameStore.clef, stats, advanced);
   }
 );
 
@@ -74,7 +75,8 @@ watch(
   () => gameStore.clef,
   (clef) => {
     const stats = profilesStore.activeProfile?.pitchStats ?? {};
-    gameStore.level = nextUnlockedLevel(clef, stats);
+    const advanced = profilesStore.activeProfile?.preferences.advancedSettings;
+    gameStore.level = nextUnlockedLevel(clef, stats, advanced);
   }
 );
 

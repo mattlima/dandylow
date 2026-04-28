@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import type { SequenceNote } from '../constants';
+import { resolveAdvancedSettings } from '../constants';
+import { useProfilesStore } from './profiles';
 
 const SUCCESS_MESSAGES = [
     '🎉 Excellent!',
@@ -11,6 +13,7 @@ const SUCCESS_MESSAGES = [
 ];
 
 export const useGameStore = defineStore('game', () => {
+    const profilesStore = useProfilesStore();
     // Settings
     const level = ref(1);
     const clef = ref('treble');
@@ -102,7 +105,9 @@ export const useGameStore = defineStore('game', () => {
             showFeedback('correct', msg);
         } else {
             streak.value = 0;
-            showFeedback('incorrect', `❌ The note was ${expectedLabel}`, 2000);
+            const feedbackMs = resolveAdvancedSettings(profilesStore.activeProfile?.preferences.advancedSettings)
+                .gameplayTiming.incorrectFeedbackAutohideMs;
+            showFeedback('incorrect', `❌ The note was ${expectedLabel}`, feedbackMs);
         }
 
         if (inputMode.value === 'microphone') {
